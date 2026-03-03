@@ -1,0 +1,25 @@
+{
+  "name": "ONBgram Pro",
+  "short_name": "ONBgram",
+  "description": "Messagerie sécurisée en temps réel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1621",
+  "theme_color": "#3390ec",
+  "orientation": "portrait",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
