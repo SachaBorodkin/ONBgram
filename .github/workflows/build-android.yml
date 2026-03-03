@@ -1,0 +1,140 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create www folder
+        run: |
+          mkdir -p www
+          cat > www/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>ONBgram</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { background: #0f1621; width: 100vw; height: 100vh; overflow: hidden; }
+              #loader {
+                position: fixed; inset: 0; background: #0f1621;
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                color: #3390ec; font-family: sans-serif; gap: 16px;
+              }
+              .spinner {
+                width: 48px; height: 48px;
+                border: 4px solid #1e2a38;
+                border-top-color: #3390ec;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+              }
+              .app-title { font-size: 24px; font-weight: 700; }
+              .app-sub { font-size: 13px; color: #a0a9b5; }
+              @keyframes spin { to { transform: rotate(360deg); } }
+              #offline-msg {
+                display: none; position: fixed; inset: 0; background: #0f1621;
+                flex-direction: column; align-items: center; justify-content: center;
+                color: #e1e5ea; font-family: sans-serif; gap: 16px;
+                text-align: center; padding: 24px;
+              }
+              #offline-msg h2 { color: #ff4d4f; font-size: 22px; }
+              #offline-msg p { color: #a0a9b5; font-size: 14px; line-height: 1.6; }
+              #offline-msg button {
+                background: #3390ec; color: white; border: none;
+                padding: 12px 28px; border-radius: 10px;
+                font-size: 15px; font-weight: 700; cursor: pointer;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="loader">
+              <div class="spinner"></div>
+              <div class="app-title">💬 ONBgram</div>
+              <div class="app-sub">Chargement...</div>
+            </div>
+            <div id="offline-msg">
+              <h2>📡 Hors ligne</h2>
+              <p>ONBgram nécessite une connexion internet.<br>Vérifiez votre réseau et réessayez.</p>
+              <button onclick="location.reload()">🔄 Réessayer</button>
+            </div>
+            <script>
+              setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('offline-msg').style.display = 'flex';
+              }, 6000);
+              window.location.replace('https://sachaborodkin.github.io/ONBgram/');
+            </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ONBgram.apk
+
+      - name: Get build info
+        id: info
+        run: |
+          echo "date=$(date +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ steps.info.outputs.sha }}
+          name: "📱 ONBgram Android — ${{ steps.info.outputs.date }}"
+          body: |
+            ## 📱 ONBgram — Android APK
+
+            **Commit:** `${{ steps.info.outputs.sha }}`
+            **Date:** ${{ steps.info.outputs.date }}
+
+            ---
+
+            ### 📥 Comment installer
+            1. Téléchargez **ONBgram.apk** ci-dessous
+            2. Sur Android : **Paramètres → Sécurité → Sources inconnues** ✅
+            3. Ouvrez le fichier APK et installez
+            4. L'app se met à jour automatiquement à chaque push 🎉
+          files: ONBgram.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

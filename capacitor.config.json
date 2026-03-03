@@ -1,0 +1,12 @@
+{
+  "appId": "com.onbgram.pro",
+  "appName": "ONBgram",
+  "webDir": "www",
+  "server": {
+    "url": "https://sachaborodkin.github.io/ONBgram/",
+    "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#0f1621"
+  }
+}
