@@ -8,13 +8,13 @@
   <meta http-equiv="X-Frame-Options" content="DENY" />
   <meta name="referrer" content="no-referrer" />
   <meta name="description" content="ONBgram Pro - Messagerie sécurisée en temps réel" />
-  <!-- PWA: manifest & iOS meta -->
-<link rel="manifest" href="/manifest.json">
+
+<!-- PWA -->
+<link rel="manifest" href="/ONBgram/manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ONBgram">
-<meta name="msapplication-TileColor" content="#3390ec">
 <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=ONB&background=3390ec&color=fff&size=180">
   <title>ONBgram Pro</title>
   <link rel="icon"
@@ -1685,106 +1685,92 @@
 </head>
 <!-- PWA: Service Worker registration + auto-update -->
 <script>
+  // ── Install prompt (Android Chrome) ──────────────────────────
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('pwa-install-btn').style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('pwa-install-btn').style.display = 'none';
+    deferredPrompt = null;
+  });
+  window.installPWA = function () {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        document.getElementById('pwa-install-btn').style.display = 'none';
+      });
+    }
+  };
+
+  // ── iOS Safari install banner ─────────────────────────────────
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !isStandalone) {
+    const b = document.createElement('div');
+    b.style.cssText = `
+      position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      background:#17212b;color:#e1e5ea;padding:14px 18px;border-radius:14px;
+      font-size:13px;font-family:sans-serif;border:1px solid #3390ec;
+      z-index:99999;max-width:85vw;box-shadow:0 4px 20px rgba(0,0,0,.5);
+      text-align:center;line-height:1.6;
+    `;
+    b.innerHTML = `
+      <b style="color:#3390ec">📲 Installer ONBgram</b><br>
+      Appuyez sur <b>⎙ Partager</b><br>puis <b>"Sur l'écran d'accueil"</b><br><br>
+      <button onclick="this.parentElement.remove()" style="
+        background:#3390ec;color:white;border:none;padding:6px 18px;
+        border-radius:8px;cursor:pointer;font-weight:700;">OK</button>
+    `;
+    document.body.appendChild(b);
+  }
+
+  // ── Service Worker + auto-update banner ──────────────────────
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-
-        // Poll for updates every 60 seconds
-        setInterval(() => reg.update(), 60000);
-
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
-
-          newWorker.addEventListener('statechange', () => {
-            // New SW installed and waiting — prompt user
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Show a subtle update banner instead of a blocking confirm
-              const banner = document.createElement('div');
-              banner.id = 'pwa-update-banner';
-              banner.style.cssText = `
-                position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-                background: #3390ec; color: white; padding: 12px 20px;
-                border-radius: 12px; font-size: 14px; font-family: sans-serif;
-                display: flex; align-items: center; gap: 12px; z-index: 99999;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 90vw;
-                animation: slideUp 0.3s ease-out;
-              `;
-              banner.innerHTML = `
-                <style>
-                  @keyframes slideUp {
-                    from { transform: translateX(-50%) translateY(80px); opacity: 0; }
-                    to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
-                  }
-                </style>
-                <span>🔄 Mise à jour disponible !</span>
-                <button onclick="
-                  newWorker.postMessage('SKIP_WAITING');
-                  window.location.reload();
-                " style="
-                  background: white; color: #3390ec; border: none;
-                  padding: 6px 14px; border-radius: 8px; font-weight: 700;
-                  cursor: pointer; font-size: 13px;
-                ">Mettre à jour</button>
-                <button onclick="this.parentElement.remove()" style="
-                  background: none; border: none; color: rgba(255,255,255,0.7);
-                  cursor: pointer; font-size: 18px; padding: 0 4px;
-                ">✕</button>
-              `;
-              document.body.appendChild(banner);
-            }
-          });
+    navigator.serviceWorker.register('/ONBgram/sw.js').then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+              position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+              background:#3390ec;color:white;padding:12px 20px;border-radius:12px;
+              font-size:14px;font-family:sans-serif;display:flex;align-items:center;
+              gap:12px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.4);
+              max-width:90vw;
+            `;
+            banner.innerHTML = `
+              <span>🔄 Mise à jour disponible !</span>
+              <button onclick="nw.postMessage('SKIP_WAITING');location.reload()" style="
+                background:white;color:#3390ec;border:none;padding:6px 14px;
+                border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;
+              ">Mettre à jour</button>
+              <button onclick="this.parentElement.remove()" style="
+                background:none;border:none;color:rgba(255,255,255,.7);
+                cursor:pointer;font-size:18px;padding:0 4px;
+              ">✕</button>
+            `;
+            document.body.appendChild(banner);
+          }
         });
-
-      }).catch(err => console.warn('SW registration failed:', err));
+      });
     });
   }
 </script>
-```
 
----
-
-## 🚀 One-Time GitHub Setup (do this once)
-
-1. Push all files to your `main` branch
-2. Go to your repo → **Settings → Pages**
-3. Under **Source**, select **GitHub Actions**
-4. Save — done ✅
-
-From now on, every `git push` to `main` automatically redeploys your app.
-
----
-
-## 📱 How Users Install It
-
-### Android (Chrome)
-1. Open `https://yourusername.github.io/yourrepo/` in Chrome
-2. Tap the **"Add to Home Screen"** banner that appears automatically
-3. Or: tap the **⋮ menu → Add to Home Screen**
-4. App icon appears on the home screen, opens fullscreen with no browser UI
-
-### iOS (Safari — must use Safari)
-1. Open the URL in **Safari** (not Chrome)
-2. Tap the **Share button** (box with arrow)
-3. Scroll down → tap **"Add to Home Screen"**
-4. Tap **Add** — done
-
----
-
-## 🔄 How Auto-Updates Work
-```
-You push code to GitHub
-        ↓
-GitHub Actions runs (~ 1 minute)
-        ↓
-New version live on GitHub Pages
-        ↓
-App's service worker detects new files
-(checks every 60 seconds in background)
-        ↓
-Blue banner appears: "Mise à jour disponible !"
-        ↓
-User taps "Mettre à jour" → instant reload
+<!-- Install button shown automatically when browser supports it -->
+<button id="pwa-install-btn" onclick="window.installPWA()" style="
+  display:none; position:fixed; bottom:20px; right:16px; z-index:9999;
+  background:#3390ec; color:white; border:none; padding:10px 16px;
+  border-radius:12px; font-size:13px; font-weight:700; cursor:pointer;
+  align-items:center; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,.4);
+">📲 Installer l'app</button>
 <body>
   <a href="#messages" class="skip-link" tabindex="0">Aller au contenu principal</a>
   <div id="notification-area" role="status" aria-live="polite"></div>
