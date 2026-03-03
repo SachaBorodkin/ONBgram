@@ -1683,94 +1683,6 @@
     }
   </style>
 </head>
-<!-- PWA: Service Worker registration + auto-update -->
-<script>
-  // ── Install prompt (Android Chrome) ──────────────────────────
-  let deferredPrompt;
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById('pwa-install-btn').style.display = 'flex';
-  });
-  window.addEventListener('appinstalled', () => {
-    document.getElementById('pwa-install-btn').style.display = 'none';
-    deferredPrompt = null;
-  });
-  window.installPWA = function () {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(() => {
-        deferredPrompt = null;
-        document.getElementById('pwa-install-btn').style.display = 'none';
-      });
-    }
-  };
-
-  // ── iOS Safari install banner ─────────────────────────────────
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-  if (isIOS && !isStandalone) {
-    const b = document.createElement('div');
-    b.style.cssText = `
-      position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-      background:#17212b;color:#e1e5ea;padding:14px 18px;border-radius:14px;
-      font-size:13px;font-family:sans-serif;border:1px solid #3390ec;
-      z-index:99999;max-width:85vw;box-shadow:0 4px 20px rgba(0,0,0,.5);
-      text-align:center;line-height:1.6;
-    `;
-    b.innerHTML = `
-      <b style="color:#3390ec">📲 Installer ONBgram</b><br>
-      Appuyez sur <b>⎙ Partager</b><br>puis <b>"Sur l'écran d'accueil"</b><br><br>
-      <button onclick="this.parentElement.remove()" style="
-        background:#3390ec;color:white;border:none;padding:6px 18px;
-        border-radius:8px;cursor:pointer;font-weight:700;">OK</button>
-    `;
-    document.body.appendChild(b);
-  }
-
-  // ── Service Worker + auto-update banner ──────────────────────
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/ONBgram/sw.js').then(reg => {
-      setInterval(() => reg.update(), 60000);
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        if (!nw) return;
-        nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            const banner = document.createElement('div');
-            banner.style.cssText = `
-              position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-              background:#3390ec;color:white;padding:12px 20px;border-radius:12px;
-              font-size:14px;font-family:sans-serif;display:flex;align-items:center;
-              gap:12px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.4);
-              max-width:90vw;
-            `;
-            banner.innerHTML = `
-              <span>🔄 Mise à jour disponible !</span>
-              <button onclick="nw.postMessage('SKIP_WAITING');location.reload()" style="
-                background:white;color:#3390ec;border:none;padding:6px 14px;
-                border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;
-              ">Mettre à jour</button>
-              <button onclick="this.parentElement.remove()" style="
-                background:none;border:none;color:rgba(255,255,255,.7);
-                cursor:pointer;font-size:18px;padding:0 4px;
-              ">✕</button>
-            `;
-            document.body.appendChild(banner);
-          }
-        });
-      });
-    });
-  }
-</script>
-
-<!-- Install button shown automatically when browser supports it -->
-<button id="pwa-install-btn" onclick="window.installPWA()" style="
-  display:none; position:fixed; bottom:20px; right:16px; z-index:9999;
-  background:#3390ec; color:white; border:none; padding:10px 16px;
-  border-radius:12px; font-size:13px; font-weight:700; cursor:pointer;
-  align-items:center; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,.4);
-">📲 Installer l'app</button>
 <body>
   <a href="#messages" class="skip-link" tabindex="0">Aller au contenu principal</a>
   <div id="notification-area" role="status" aria-live="polite"></div>
@@ -4001,6 +3913,94 @@
       checkUser();
     })();
   </script>
+  <!-- PWA: Service Worker registration + auto-update -->
+<script>
+  // ── Install prompt (Android Chrome) ──────────────────────────
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('pwa-install-btn').style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('pwa-install-btn').style.display = 'none';
+    deferredPrompt = null;
+  });
+  window.installPWA = function () {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        document.getElementById('pwa-install-btn').style.display = 'none';
+      });
+    }
+  };
+
+  // ── iOS Safari install banner ─────────────────────────────────
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !isStandalone) {
+    const b = document.createElement('div');
+    b.style.cssText = `
+      position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      background:#17212b;color:#e1e5ea;padding:14px 18px;border-radius:14px;
+      font-size:13px;font-family:sans-serif;border:1px solid #3390ec;
+      z-index:99999;max-width:85vw;box-shadow:0 4px 20px rgba(0,0,0,.5);
+      text-align:center;line-height:1.6;
+    `;
+    b.innerHTML = `
+      <b style="color:#3390ec">📲 Installer ONBgram</b><br>
+      Appuyez sur <b>⎙ Partager</b><br>puis <b>"Sur l'écran d'accueil"</b><br><br>
+      <button onclick="this.parentElement.remove()" style="
+        background:#3390ec;color:white;border:none;padding:6px 18px;
+        border-radius:8px;cursor:pointer;font-weight:700;">OK</button>
+    `;
+    document.body.appendChild(b);
+  }
+
+  // ── Service Worker + auto-update banner ──────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/ONBgram/sw.js').then(reg => {
+      setInterval(() => reg.update(), 60000);
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+              position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+              background:#3390ec;color:white;padding:12px 20px;border-radius:12px;
+              font-size:14px;font-family:sans-serif;display:flex;align-items:center;
+              gap:12px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.4);
+              max-width:90vw;
+            `;
+            banner.innerHTML = `
+              <span>🔄 Mise à jour disponible !</span>
+              <button onclick="nw.postMessage('SKIP_WAITING');location.reload()" style="
+                background:white;color:#3390ec;border:none;padding:6px 14px;
+                border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;
+              ">Mettre à jour</button>
+              <button onclick="this.parentElement.remove()" style="
+                background:none;border:none;color:rgba(255,255,255,.7);
+                cursor:pointer;font-size:18px;padding:0 4px;
+              ">✕</button>
+            `;
+            document.body.appendChild(banner);
+          }
+        });
+      });
+    });
+  }
+</script>
+
+<!-- Install button shown automatically when browser supports it -->
+<button id="pwa-install-btn" onclick="window.installPWA()" style="
+  display:none; position:fixed; bottom:20px; right:16px; z-index:9999;
+  background:#3390ec; color:white; border:none; padding:10px 16px;
+  border-radius:12px; font-size:13px; font-weight:700; cursor:pointer;
+  align-items:center; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,.4);
+">📲 Installer l'app</button>
 </body>
 
 </html>
