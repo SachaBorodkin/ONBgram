@@ -46,20 +46,50 @@ jobs:
       - name: Patch AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          echo "=== BEFORE PATCH ==="
-          cat "$MANIFEST"
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />|' "$MANIFEST"
-          echo "=== AFTER PATCH ==="
-          cat "$MANIFEST"
 
-      - name: Patch build.gradle
+      - name: Rewrite app/build.gradle safely
         run: |
-          echo "=== build.gradle BEFORE ==="
-          cat android/app/build.gradle
-          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 26/' android/app/build.gradle || true
-          sed -i 's/minSdk = [0-9]*/minSdk = 26/' android/app/build.gradle || true
-          echo "=== build.gradle AFTER ==="
-          cat android/app/build.gradle
+          cat > android/app/build.gradle << 'EOF'
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace "com.onbgram.pro"
+              compileSdkVersion rootProject.ext.compileSdkVersion
+              defaultConfig {
+                  applicationId "com.onbgram.pro"
+                  minSdkVersion 26
+                  targetSdkVersion rootProject.ext.targetSdkVersion
+                  versionCode 1
+                  versionName "1.0"
+                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                  }
+              }
+          }
+
+          repositories {
+              flatDir {
+                  dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+              }
+          }
+
+          dependencies {
+              implementation fileTree(include: ['*.jar'], dir: 'libs')
+              implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+              implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+              implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+              implementation project(':capacitor-android')
+              testImplementation "junit:junit:$junitVersion"
+              androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+              androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
+              implementation project(':capacitor-local-notifications')
+          }
+          EOF
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -71,9 +101,7 @@ jobs:
 
       - name: Check APK exists
         run: |
-          echo "=== Looking for APK ==="
           find android -name "*.apk" 2>/dev/null || echo "No APK found"
-          ls -la android/app/build/outputs/apk/debug/ 2>/dev/null || echo "debug folder not found"
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk ONBgram.apk
