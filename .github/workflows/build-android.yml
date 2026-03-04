@@ -48,27 +48,33 @@ jobs:
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />|' "$MANIFEST"
 
-      - name: Rewrite app/build.gradle safely
+      - name: Show variables.gradle
+        run: cat android/variables.gradle || echo "not found"
+
+      - name: Rewrite app/build.gradle with hardcoded versions
         run: |
           cat > android/app/build.gradle << 'EOF'
           apply plugin: 'com.android.application'
 
           android {
               namespace "com.onbgram.pro"
-              compileSdkVersion rootProject.ext.compileSdkVersion
+              compileSdk 34
               defaultConfig {
                   applicationId "com.onbgram.pro"
-                  minSdkVersion 26
-                  targetSdkVersion rootProject.ext.targetSdkVersion
+                  minSdk 26
+                  targetSdk 34
                   versionCode 1
                   versionName "1.0"
-                  testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
               }
               buildTypes {
                   release {
                       minifyEnabled false
                       proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
                   }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
           }
 
@@ -80,13 +86,10 @@ jobs:
 
           dependencies {
               implementation fileTree(include: ['*.jar'], dir: 'libs')
-              implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
-              implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
-              implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+              implementation "androidx.appcompat:appcompat:1.6.1"
+              implementation "androidx.coordinatorlayout:coordinatorlayout:1.2.0"
+              implementation "androidx.core:core-splashscreen:1.0.1"
               implementation project(':capacitor-android')
-              testImplementation "junit:junit:$junitVersion"
-              androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-              androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
               implementation project(':capacitor-local-notifications')
           }
           EOF
@@ -100,8 +103,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
 
       - name: Check APK exists
-        run: |
-          find android -name "*.apk" 2>/dev/null || echo "No APK found"
+        run: find android -name "*.apk" 2>/dev/null || echo "No APK found"
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/debug/app-debug.apk ONBgram.apk
