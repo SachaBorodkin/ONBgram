@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create www folder with notification bridge
+      - name: Create www folder
         run: |
           mkdir -p www
           cat > www/index.html << 'HTMLEOF'
@@ -87,85 +87,10 @@ jobs:
               <button onclick="location.reload()">🔄 Réessayer</button>
             </div>
             <script>
-              // ── Notification bridge ──────────────────────────────────────
-              // Intercepts window.Notification and routes to Capacitor
-              // so index.html needs zero changes
-              (function () {
-                let _notifAllowed = false;
-                let _notifId = 1;
-
-                function scheduleNative(title, body) {
-                  if (!window.Capacitor) return;
-                  try {
-                    window.Capacitor.Plugins.LocalNotifications.schedule({
-                      notifications: [{
-                        id: _notifId++,
-                        title: title || 'ONBgram',
-                        body: body || '',
-                        schedule: { at: new Date(Date.now() + 100) },
-                        sound: 'default',
-                        smallIcon: 'ic_launcher',
-                        iconColor: '#3390ec'
-                      }]
-                    });
-                  } catch (e) { console.warn('Native notif error:', e); }
-                }
-
-                async function requestNativePermission() {
-                  if (!window.Capacitor) return 'denied';
-                  try {
-                    const result = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
-                    _notifAllowed = result.display === 'granted';
-                    return _notifAllowed ? 'granted' : 'denied';
-                  } catch (e) { return 'denied'; }
-                }
-
-                // Override the browser Notification API
-                const FakeNotification = function (title, options) {
-                  if (_notifAllowed) scheduleNative(title, options?.body || '');
-                };
-
-                FakeNotification.permission = 'default';
-
-                FakeNotification.requestPermission = async function () {
-                  const perm = await requestNativePermission();
-                  FakeNotification.permission = perm;
-                  return perm;
-                };
-
-                // Expose on window so the iframe page can use it
-                window.Notification = FakeNotification;
-
-                // Auto-request permission when Capacitor is ready
-                document.addEventListener('deviceready', async () => {
-                  if (window.Capacitor) {
-                    const perm = await requestNativePermission();
-                    FakeNotification.permission = perm;
-                  }
-                });
-              })();
-              // ── End bridge ───────────────────────────────────────────────
-
-              // Inject bridge into the loaded app page via postMessage
-              // so that index.html on GitHub Pages also gets it
-              window.addEventListener('message', function (e) {
-                if (e.data && e.data.type === 'NOTIF_REQUEST') {
-                  window.Notification.requestPermission().then(p => {
-                    e.source.postMessage({ type: 'NOTIF_PERMISSION', permission: p }, '*');
-                  });
-                }
-                if (e.data && e.data.type === 'NOTIF_SEND') {
-                  if (window.Notification && window.Notification.permission === 'granted') {
-                    new window.Notification(e.data.title, { body: e.data.body });
-                  }
-                }
-              });
-
               setTimeout(() => {
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('offline-msg').style.display = 'flex';
               }, 6000);
-
               window.location.replace('https://sachaborodkin.github.io/ONBgram/');
             </script>
           </body>
@@ -178,22 +103,26 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
+      - name: Patch MainActivity with camera/mic/notification support
+        run: |
+          DEST="android/app/src/main/java/com/onbgram/pro/MainActivity.java"
+          mkdir -p "$(dirname $DEST)"
+          cp android-patches/MainActivity.java "$DEST"
 
-      - name: Patch AndroidManifest for notifications
+      - name: Patch AndroidManifest
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # Add notification permission if not already present
-          if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
-            sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n    <uses-permission android:name="android.permission.VIBRATE" />|' "$MANIFEST"
-          fi
+          
+          # Add all required permissions
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />|' "$MANIFEST"
 
-      - name: Patch build.gradle for minSdk 26
+      - name: Patch build.gradle
         run: |
-          # LocalNotifications requires minSdk 26
-          sed -i 's/minSdkVersion .*/minSdkVersion 26/' android/app/build.gradle || true
-          sed -i 's/minSdk .*/minSdk 26/' android/app/build.gradle || true
+          sed -i 's/minSdkVersion [0-9]*/minSdkVersion 26/' android/app/build.gradle || true
+          sed -i 's/minSdk = [0-9]*/minSdk = 26/' android/app/build.gradle || true
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
 
       - name: Build APK
         run: |
@@ -226,11 +155,12 @@ jobs:
             1. Téléchargez **ONBgram.apk** ci-dessous
             2. Sur Android : **Paramètres → Sécurité → Sources inconnues** ✅
             3. Ouvrez le fichier APK et installez
-            4. Acceptez la permission notifications au premier lancement 🔔
+            4. Acceptez toutes les permissions au premier lancement
 
-            ### 🔄 Mises à jour
-            Le contenu se met à jour automatiquement sans réinstaller.
-            Un nouvel APK est seulement nécessaire pour les changements natifs.
+            ### ✅ Permissions supportées
+            - 🔔 Notifications système
+            - 📷 Caméra (appels vidéo)
+            - 🎤 Microphone (appels audio/vocal)
           files: ONBgram.apk
           make_latest: true
         env:
